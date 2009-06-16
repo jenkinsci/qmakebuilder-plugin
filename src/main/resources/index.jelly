@@ -1,0 +1,6 @@
+<!--
+  This view is used to render the plugin list page. 
+-->
+<div>
+  This plugin can be used to build Qt-based projects that use Qmake within Hudson.
+</div>

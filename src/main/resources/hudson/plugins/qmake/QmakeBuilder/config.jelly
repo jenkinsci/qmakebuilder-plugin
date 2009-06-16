@@ -1,0 +1,11 @@
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+
+  <f:entry title="Qmake project file" field="projectFile">
+    	<f:textbox />
+  </f:entry>
+    
+  <f:entry title="Extra CONFIG options (optional)" field="extraConfig">
+    	<f:textbox  />
+  </f:entry>
+	
+</j:jelly>
