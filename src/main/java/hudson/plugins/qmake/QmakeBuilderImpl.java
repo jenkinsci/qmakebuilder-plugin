@@ -6,11 +6,12 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
 
-import org.kohsuke.stapler.framework.io.IOException2;
-
 public class QmakeBuilderImpl {
 
   private static final String CONFIG_PREFIX = "CONFIG+=";
+  private static final String QMAKE_DEFAULT = "qmake";
+
+  String qmakeBin;
 
   public enum PreparePathOptions
   {
@@ -46,12 +47,30 @@ public class QmakeBuilderImpl {
     return file.getPath();
   }
 
-  String buildQMakeCall(String qmakeBin, String projectFile, String extraConfig ) {
-    String qmakeCall = qmakeBin + " "
-                     + "\"" + projectFile + "\"";
+  void setQmakeBin(Map<String, String> envVars,
+                   String globalQmakeBin, boolean isWindows ) {
+    qmakeBin = QMAKE_DEFAULT;
+
+    if (globalQmakeBin != null && globalQmakeBin.length() > 0) {
+      File fileInfo = new File( globalQmakeBin );
+      if (fileInfo.exists()) qmakeBin = globalQmakeBin;
+    }
+
+    if (envVars.containsKey( "QTDIR" ) ) {
+      String checkName = envVars.get("QTDIR") + "/bin/qmake";
+      if (isWindows) {
+	checkName += ".exe";
+      }
+      File fileInfo = new File( checkName );
+      if (fileInfo.exists()) qmakeBin = checkName;
+    }
+  }
+
+  String buildQMakeCall(String projectFile, String extraArguments ) {
+    String qmakeCall = qmakeBin + " -r \"" + projectFile + "\"";
 		     
-    if (!extraConfig.isEmpty()) {
-      qmakeCall += " \"" + CONFIG_PREFIX + extraConfig + "\"";
+    if (!extraArguments.isEmpty()) {
+      qmakeCall += " " + extraArguments;
     }
     return qmakeCall;
   }

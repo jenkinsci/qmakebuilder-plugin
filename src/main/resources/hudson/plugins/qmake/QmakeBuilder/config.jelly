@@ -4,7 +4,7 @@
     	<f:textbox />
   </f:entry>
     
-  <f:entry title="Extra CONFIG options (optional)" field="extraConfig">
+  <f:entry title="Extra arguments to qmake (optional)" field="extraArguments">
     	<f:textbox  />
   </f:entry>
 	

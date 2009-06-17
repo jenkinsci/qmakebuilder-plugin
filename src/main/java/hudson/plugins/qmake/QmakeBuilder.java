@@ -6,22 +6,19 @@ import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Proc;
 import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
 import hudson.model.Descriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import net.sf.json.JSONObject;
-import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
 import javax.servlet.ServletException;
 import java.io.File;
+import java.io.PrintStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Executes <tt>qmake</tt> and <tt>make</tt> as the build process for a QT-based build.
@@ -30,18 +27,17 @@ import java.util.List;
  */
 public class QmakeBuilder extends Builder {
 
-    private static final String QMAKE = "qmake";
-
     private String projectFile;
-    private String extraConfig;
+    private String extraArguments;
+    private String extraConfig; // unused, deprecated
     private boolean cleanBuild;
 
     private QmakeBuilderImpl builderImpl;
     
     @DataBoundConstructor
-    public QmakeBuilder(String projectFile, String extraConfig) {
+    public QmakeBuilder(String projectFile, String extraArguments) {
       this.projectFile = projectFile;
-      this.extraConfig = extraConfig;
+      this.extraArguments = extraArguments;
       this.cleanBuild = false;
       builderImpl = new QmakeBuilderImpl();		
     }
@@ -50,8 +46,8 @@ public class QmakeBuilder extends Builder {
       return this.projectFile;
     }
     
-    public String getExtraConfig() {
-      return this.extraConfig;
+    public String getExtraArguments() {
+      return this.extraArguments;
     }
 
     public boolean getCleanBuild() {
@@ -59,56 +55,45 @@ public class QmakeBuilder extends Builder {
     }
     
     public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
-      listener.getLogger().println("MODULE: " + build.getProject().getModuleRoot());
+      PrintStream logger = listener.getLogger();
+
+      logger.println("MODULE: " + build.getProject().getModuleRoot());
+
+      final boolean isWindows = !launcher.isUnix();
 
       if (builderImpl == null) {
 	builderImpl = new QmakeBuilderImpl();
       }
-      EnvVars envs = build.getEnvironment(listener);
+      EnvVars envVars = build.getEnvironment(listener);
 
       String theProjectFile;
       String theInstallDir;
       try {
-
-	//builderImpl.preparePath(envs, this.buildDir, 
-	//    QmakeBuilderImpl.PreparePathOptions.CREATE_NEW_IF_EXISTS);
-	theProjectFile = builderImpl.preparePath(envs, this.projectFile,
+	theProjectFile = builderImpl.preparePath(envVars, this.projectFile,
 	    QmakeBuilderImpl.PreparePathOptions.CHECK_FILE_EXISTS);
-	//theInstallDir = builderImpl.preparePath(envs, this.installDir,
-	//    QmakeBuilderImpl.PreparePathOptions.CREATE_NEW_IF_EXISTS);
       } catch (IOException ioe) {
-	listener.getLogger().println(ioe.getMessage());
+	logger.println(ioe.getMessage());
 	return false;
       }
-      //    	catch (InterruptedException e) {
-      //    		listener.getLogger().println(e.getMessage());
-      //			return false;
-      //		}
 
-      String qmakeBin = QMAKE;
+      builderImpl.setQmakeBin( envVars, getDescriptor().qmakePath(), isWindows );
 
-      String qmakePath = getDescriptor().qmakePath();
-      if (qmakePath != null && qmakePath.length() > 0) {
-	qmakeBin = qmakePath;
-      }
-      String qmakeCall = builderImpl.buildQMakeCall(qmakeBin, theProjectFile, extraConfig );
+      String qmakeCall = builderImpl.buildQMakeCall(theProjectFile, extraArguments );
 
       File fileInfo = new File(theProjectFile);
       FilePath workDir = new FilePath(build.getProject().getWorkspace(),
                                       fileInfo.getParent()); 
-      listener.getLogger().println("QMake call : " + qmakeCall);
-      listener.getLogger().println("QMake bin : " + qmakeBin);
-      listener.getLogger().println("QMake project file : " + theProjectFile);
+      logger.println("QMake call : " + qmakeCall);
 
       try {
-	Proc proc = launcher.launch(qmakeCall, envs, listener.getLogger(), workDir);
+	Proc proc = launcher.launch(qmakeCall, envVars, logger, workDir);
 	int result = proc.join();
 	if (result != 0) return false;
 
 	String makeExe = "make";
 	if (!launcher.isUnix()) makeExe = "nmake";
 
-	proc = launcher.launch(makeExe, envs, listener.getLogger(), workDir);
+	proc = launcher.launch(makeExe, envVars, logger, workDir);
 	result = proc.join();
 
 	if (result != 0) {
