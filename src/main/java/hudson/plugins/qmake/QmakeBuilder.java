@@ -70,8 +70,10 @@ public class QmakeBuilder extends Builder {
       String theInstallDir;
       try {
 	theProjectFile = builderImpl.preparePath(envVars, this.projectFile,
-	    QmakeBuilderImpl.PreparePathOptions.CHECK_FILE_EXISTS);
+	                               isWindows,
+				       logger);
       } catch (IOException ioe) {
+	logger.println("IO Exception with the project file: " + projectFile);
 	logger.println(ioe.getMessage());
 	return false;
       }
@@ -80,9 +82,9 @@ public class QmakeBuilder extends Builder {
 
       String qmakeCall = builderImpl.buildQMakeCall(theProjectFile, extraArguments );
 
-      File fileInfo = new File(theProjectFile);
       FilePath workDir = new FilePath(build.getProject().getWorkspace(),
-                                      fileInfo.getParent()); 
+                                      theProjectFile); 
+      workDir = workDir.getParent();
       logger.println("QMake call : " + qmakeCall);
 
       try {

@@ -5,34 +5,24 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
+import java.io.PrintStream;
+import hudson.FilePath;
 
 public class QmakeBuilderImpl {
 
-  private static final String CONFIG_PREFIX = "CONFIG+=";
   private static final String QMAKE_DEFAULT = "qmake";
 
   String qmakeBin;
+  boolean isWindows;
 
-  public enum PreparePathOptions
-  {
-    CHECK_FILE_EXISTS() {
-      @Override
-	public void process(File file) throws IOException {
-	  if (!file.exists() || !file.canRead()) {
-	    throw new FileNotFoundException(file.getAbsolutePath());
-	  }
-	}
-    };
-
-    public abstract void process(File file) throws IOException;
-  };
-	
   public QmakeBuilderImpl() {
     super();
   }
 	
-  String preparePath(Map<String, String> envVars, String path, PreparePathOptions ppOption) throws IOException {
+  String preparePath(Map<String, String> envVars, String path, boolean isWindows, PrintStream logger) throws IOException {
+    this.isWindows = isWindows;
     path = path.trim();
+
     Set<String> keys = envVars.keySet();
     for (String key : keys) {
       path = path.replaceAll("\\$" + key, envVars.get(key));
@@ -40,11 +30,14 @@ public class QmakeBuilderImpl {
 
     File file = new File(path);
     if (!file.isAbsolute()) {
-      path = envVars.get("WORKSPACE") + "/" + path;
+      String tmp = path;
+      path = envVars.get("WORKSPACE");
+      if (isWindows) path += "\\";
+      else path += "/";
+      path += tmp;
     }
-    file = new File(path);
-    ppOption.process(file);
-    return file.getPath();
+
+    return path;
   }
 
   void setQmakeBin(Map<String, String> envVars,
@@ -57,10 +50,10 @@ public class QmakeBuilderImpl {
     }
 
     if (envVars.containsKey( "QTDIR" ) ) {
-      String checkName = envVars.get("QTDIR") + "/bin/qmake";
-      if (isWindows) {
-	checkName += ".exe";
-      }
+      String checkName = envVars.get("QTDIR");
+      if (isWindows) checkName += "\\bin\\qmake.exe";
+      else           checkName += "/bin/qmake";
+
       File fileInfo = new File( checkName );
       if (fileInfo.exists()) qmakeBin = checkName;
     }
