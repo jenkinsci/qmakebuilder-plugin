@@ -4,10 +4,11 @@ import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
-import hudson.Proc;
+import hudson.Util;
 import hudson.model.AbstractBuild;
+import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
-import hudson.model.Descriptor;
+import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import net.sf.json.JSONObject;
@@ -29,7 +30,7 @@ public class QmakeBuilder extends Builder {
 
     private String projectFile;
     private String extraArguments;
-    private String extraConfig; // unused, deprecated
+    @Deprecated private transient String extraConfig; // unused, deprecated
     private boolean cleanBuild;
 
     private QmakeBuilderImpl builderImpl;
@@ -53,11 +54,12 @@ public class QmakeBuilder extends Builder {
     public boolean getCleanBuild() {
       return this.cleanBuild;
     }
-    
-    public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
+
+    @Override
+    public boolean perform(AbstractBuild<?,?> build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
       PrintStream logger = listener.getLogger();
 
-      logger.println("MODULE: " + build.getProject().getModuleRoot());
+      logger.println("MODULE: " + build.getModuleRoot());
 
       final boolean isWindows = !launcher.isUnix();
 
@@ -67,7 +69,6 @@ public class QmakeBuilder extends Builder {
       EnvVars envVars = build.getEnvironment(listener);
 
       String theProjectFile;
-      String theInstallDir;
       try {
 	theProjectFile = builderImpl.preparePath(envVars, this.projectFile,
 	                               isWindows,
@@ -82,21 +83,19 @@ public class QmakeBuilder extends Builder {
 
       String qmakeCall = builderImpl.buildQMakeCall(theProjectFile, extraArguments );
 
-      FilePath workDir = new FilePath(build.getProject().getWorkspace(),
+      FilePath workDir = new FilePath(build.getWorkspace(),
                                       theProjectFile); 
       workDir = workDir.getParent();
       logger.println("QMake call : " + qmakeCall);
 
       try {
-	Proc proc = launcher.launch(qmakeCall, envVars, logger, workDir);
-	int result = proc.join();
+	int result = launcher.launch().cmds(Util.tokenize(qmakeCall)).envs(envVars).stdout(logger).pwd(workDir).join();
 	if (result != 0) return false;
 
 	String makeExe = "make";
 	if (!launcher.isUnix()) makeExe = "nmake";
 
-	proc = launcher.launch(makeExe, envVars, logger, workDir);
-	result = proc.join();
+	result = launcher.launch().cmds(makeExe).envs(envVars).stdout(logger).pwd(workDir).join();
 
 	if (result != 0) {
 	  return false;
@@ -111,6 +110,7 @@ public class QmakeBuilder extends Builder {
       return false;
     }
 
+    @Override
     public DescriptorImpl getDescriptor() {
       return (DescriptorImpl)super.getDescriptor();
     }
@@ -124,7 +124,7 @@ public class QmakeBuilder extends Builder {
      * for the actual HTML fragment for the configuration screen.
      */
     @Extension
-    public static final class DescriptorImpl extends Descriptor<Builder> {
+    public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
       /**
        * To persist global configuration information,
        * simply store it in a field and call save().
@@ -165,6 +165,12 @@ public class QmakeBuilder extends Builder {
 	return "QMake Build";
       }
 
+      @Override
+      public boolean isApplicable(Class<? extends AbstractProject> jobType) {
+        return true;
+      }
+
+      @Override
       public boolean configure(StaplerRequest req, JSONObject o) throws FormException {
 	// to persist global configuration information,
 	// set that to properties and call save().

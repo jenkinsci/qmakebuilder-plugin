@@ -1,12 +1,10 @@
 package hudson.plugins.qmake;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
 import java.io.PrintStream;
-import hudson.FilePath;
 
 public class QmakeBuilderImpl {
 
