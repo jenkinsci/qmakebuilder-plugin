@@ -5,7 +5,6 @@
     <groupId>org.jvnet.hudson.plugins</groupId>
     <artifactId>plugin</artifactId>
     <version>1.319</version>
-    <relativePath>../pom.xml</relativePath>
   </parent> 
 
   <groupId>hudson.plugins.qmake</groupId>
